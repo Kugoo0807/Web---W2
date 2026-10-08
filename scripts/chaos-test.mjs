@@ -61,7 +61,23 @@ export async function runChaosTests() {
     console.log(`- Thời gian hoàn tất BFF: ${slowDuration}ms (ngắt sau timeout ~1500ms, không treo vô hạn)`);
     console.log(`- Trạng thái trả về: Partial data, errors:`, slowBffJson.errors);
 
-    console.log('\n--- CHAOS TESTING HOÀN TẤT VỚI KẾT QUẢ THÀNH CÔNG RỰC RỠ! ---');
+    // 4. GraphQL khi Product Service bị chậm: phải cùng policy với BFF
+    console.log('\n► Test 4: GraphQL Service khi Product Service bị trễ 2000ms (vượt quá timeout 1500ms)');
+    const gqlSlowStart = performance.now();
+    const gqlSlowRes = await fetch(`${ENDPOINTS.graphql}/graphql?delay=2000`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-graphql-mode': 'dataloader' },
+      body: JSON.stringify({ query: gqlQuery, variables: { userId: 'u1' } })
+    });
+    const gqlSlowJson = await gqlSlowRes.json();
+    const gqlSlowDuration = Math.round(performance.now() - gqlSlowStart);
+    const gqlSlowItem = gqlSlowJson.data?.orders?.[0]?.items?.[0];
+    console.log(`- HTTP Status code từ GraphQL: ${gqlSlowRes.status}`);
+    console.log(`- Thời gian hoàn tất GraphQL: ${gqlSlowDuration}ms (timeout ~1500ms)`);
+    console.log(`- Giá trị của item.product: ${JSON.stringify(gqlSlowItem?.product)}`);
+    console.log(`- GraphQL errors metadata:`, JSON.stringify(gqlSlowJson.errors, null, 2));
+
+    console.log('\n--- CHAOS TESTING HOÀN TẤT ---');
   } finally {
     for (const key of Object.keys(servers)) {
       servers[key].close();

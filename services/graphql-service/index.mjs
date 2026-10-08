@@ -77,7 +77,7 @@ async function fetchWithTelemetry(url, options = {}) {
     return {
       ok: true,
       data,
-      metrics: { service, url, status: res.status, dbQueries, durationMs: duration }
+      metrics: { service, url, status: res.status, dbQueries, durationMs: duration, startMs: options.traceStartMs === undefined ? undefined : Math.round(start - options.traceStartMs) }
     };
   } catch (err) {
     clearTimeout(timeoutId);
@@ -85,7 +85,7 @@ async function fetchWithTelemetry(url, options = {}) {
     return {
       ok: false,
       error: err.name === 'AbortError' ? 'Timeout' : err.message,
-      metrics: { service: 'product-service', url, status: err.name === 'AbortError' ? 408 : 500, dbQueries: 0, durationMs: duration }
+      metrics: { service: 'product-service', url, status: err.name === 'AbortError' ? 408 : 500, dbQueries: 0, durationMs: duration, startMs: options.traceStartMs === undefined ? undefined : Math.round(start - options.traceStartMs) }
     };
   }
 }
@@ -98,7 +98,7 @@ function createProductLoader(context) {
     const uniqueIds = Array.from(new Set(ids));
     const url = `${PRODUCT_SERVICE_URL}/products/batch?ids=${uniqueIds.join(',')}${context.chaosQuery || ''}`;
 
-    const res = await fetchWithTelemetry(url, { headers: context.chaosHeaders || {}, timeout: PRODUCT_TIMEOUT_MS });
+    const res = await fetchWithTelemetry(url, { headers: context.chaosHeaders || {}, timeout: PRODUCT_TIMEOUT_MS, traceStartMs: context.t0 });
     context.metrics.serviceCalls++;
     context.metrics.serviceCallBreakdown.push(res.metrics);
     context.metrics.dbQueries += res.metrics.dbQueries;
@@ -129,7 +129,7 @@ function createProductLoader(context) {
 // Resolvers
 const rootResolvers = {
   user: async ({ id }, context) => {
-    const res = await fetchWithTelemetry(`${USER_SERVICE_URL}/users/${encodeURIComponent(id)}`);
+    const res = await fetchWithTelemetry(`${USER_SERVICE_URL}/users/${encodeURIComponent(id)}`, { traceStartMs: context.t0 });
     context.metrics.serviceCalls++;
     context.metrics.serviceCallBreakdown.push(res.metrics);
     context.metrics.dbQueries += res.metrics.dbQueries;
@@ -141,7 +141,7 @@ const rootResolvers = {
   },
 
   orders: async ({ userId }, context) => {
-    const res = await fetchWithTelemetry(`${ORDER_SERVICE_URL}/orders?userId=${encodeURIComponent(userId)}`);
+    const res = await fetchWithTelemetry(`${ORDER_SERVICE_URL}/orders?userId=${encodeURIComponent(userId)}`, { traceStartMs: context.t0 });
     context.metrics.serviceCalls++;
     context.metrics.serviceCallBreakdown.push(res.metrics);
     context.metrics.dbQueries += res.metrics.dbQueries;
@@ -164,7 +164,7 @@ const rootResolvers = {
             // Mỗi order item tự gọi 1 HTTP request riêng tới Product Service
             const singleRes = await fetchWithTelemetry(
               `${PRODUCT_SERVICE_URL}/products/${encodeURIComponent(item.productId)}${context.chaosQuery || ''}`,
-              { headers: context.chaosHeaders || {}, timeout: PRODUCT_TIMEOUT_MS }
+              { headers: context.chaosHeaders || {}, timeout: PRODUCT_TIMEOUT_MS, traceStartMs: context.t0 }
             );
             context.metrics.serviceCalls++;
             context.metrics.serviceCallBreakdown.push(singleRes.metrics);
@@ -212,6 +212,7 @@ export function createGraphqlServiceApp() {
     if (req.query.fault) chaosQuery += `&fault=${req.query.fault}`;
 
     const context = {
+      t0,
       mode,
       chaosHeaders,
       chaosQuery,

@@ -12,6 +12,12 @@ async function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+async function closeServers(servers) {
+  await Promise.all(Object.values(servers).map(server => new Promise((resolve, reject) => {
+    server.close(error => error ? reject(error) : resolve());
+  })));
+}
+
 // 1. Run Baseline
 async function runBaseline(userId, clientTarget) {
   const t0 = performance.now();
@@ -147,10 +153,18 @@ async function benchmarkScenario(datasetName, userId, clientTarget) {
   for (const r of runners) {
     process.stdout.write(`Đo [${r.name}] 5 lần... `);
     const runs = [];
-    for (let i = 0; i < 5; i++) {
-      const runRes = await r.fn();
-      runs.push(runRes);
-      await sleep(40);
+    // Khởi động lại service cho từng biến thể: lần đầu thật sự là cold run.
+    const servers = startAllServers();
+    await sleep(300);
+    try {
+      for (let i = 0; i < 5; i++) {
+        const runRes = await r.fn();
+        runs.push(runRes);
+        await sleep(40);
+      }
+    } finally {
+      await closeServers(servers);
+      await sleep(100);
     }
 
     const cold = runs[0].durationMs;
@@ -188,32 +202,22 @@ async function benchmarkScenario(datasetName, userId, clientTarget) {
 }
 
 export async function runAllBenchmarks() {
-  const servers = startAllServers();
-  await sleep(1000); // Đợi server ổn định
+  const reportData = {};
 
-  try {
-    const reportData = {};
+  // 1. Small Dataset - Web
+  reportData.smallWeb = await benchmarkScenario('Small (5 đơn)', 'u1', 'web');
 
-    // 1. Small Dataset - Web
-    reportData.smallWeb = await benchmarkScenario('Small (5 đơn)', 'u1', 'web');
+  // 2. Small Dataset - Mobile
+  reportData.smallMobile = await benchmarkScenario('Small (5 đơn)', 'u1', 'mobile');
 
-    // 2. Small Dataset - Mobile
-    reportData.smallMobile = await benchmarkScenario('Small (5 đơn)', 'u1', 'mobile');
+  // 3. Large Dataset - Web
+  reportData.largeWeb = await benchmarkScenario('Large (50 đơn)', 'u2', 'web');
 
-    // 3. Large Dataset - Web
-    reportData.largeWeb = await benchmarkScenario('Large (50 đơn)', 'u2', 'web');
+  // 4. Large Dataset - Mobile
+  reportData.largeMobile = await benchmarkScenario('Large (50 đơn)', 'u2', 'mobile');
 
-    // 4. Large Dataset - Mobile
-    reportData.largeMobile = await benchmarkScenario('Large (50 đơn)', 'u2', 'mobile');
-
-    console.log('\n--- TẤT CẢ PHÉP ĐO ĐÃ HOÀN TẤT THÀNH CÔNG! ---');
-    return reportData;
-  } finally {
-    // Đóng các server sau khi benchmark xong
-    for (const key of Object.keys(servers)) {
-      servers[key].close();
-    }
-  }
+  console.log('\n--- TẤT CẢ PHÉP ĐO ĐÃ HOÀN TẤT ---');
+  return reportData;
 }
 
 if (process.argv[1] && process.argv[1].endsWith('run-benchmark.mjs')) {

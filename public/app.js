@@ -77,11 +77,17 @@ btnRunOnce.addEventListener('click', async () => {
   btnRunOnce.disabled = true;
   btnRunOnce.innerHTML = 'Đang chạy...';
   try {
+    const screenStart = performance.now();
     const result = await executeRun(state.variant, state.dataset, state.client, state.chaos);
     renderMetrics(result);
     renderWaterfall(result);
     renderViews(result);
     renderTrace(result);
+    // Mốc hoàn tất màn hình: sau khi trình duyệt đã có một frame để paint dữ liệu vừa render.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    result.durationMs = Math.round(performance.now() - screenStart);
+    renderMetrics(result);
+    renderWaterfall(result);
   } catch (err) {
     console.error('Run failed:', err);
     alert('Thực thi thất bại: ' + err.message);
@@ -295,7 +301,7 @@ async function executeBff(userId, clientTarget, chaos) {
       timeline.push({
         label: `   └─ BFF ➔ ${sc.service} (${sc.url.split('/').pop()})`,
         service: sc.status >= 400 ? 'error' : (sc.service.includes('user') ? 'user' : (sc.service.includes('order') ? 'order' : 'product')),
-        startMs: 5,
+        startMs: sc.startMs ?? 0,
         durationMs: sc.durationMs
       });
     }
@@ -380,7 +386,9 @@ async function executeGraphql(userId, clientTarget, mode, chaos) {
 
   const query = clientTarget === 'web' ? webQuery : mobileQuery;
 
-  const res = await fetch(`${ENDPOINTS.graphql}/graphql${chaosQuery}`, {
+  // GraphQL URL chưa có query string nên chaos params phải bắt đầu bằng '?'.
+  const graphqlChaosQuery = chaosQuery ? `?${chaosQuery.slice(1)}` : '';
+  const res = await fetch(`${ENDPOINTS.graphql}/graphql${graphqlChaosQuery}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -414,7 +422,7 @@ async function executeGraphql(userId, clientTarget, mode, chaos) {
       timeline.push({
         label: `   └─ GraphQL ➔ ${sc.service} (${sc.url.split('/').pop()})`,
         service: sc.status >= 400 ? 'error' : (sc.service.includes('user') ? 'user' : (sc.service.includes('order') ? 'order' : 'product')),
-        startMs: 5,
+        startMs: sc.startMs ?? 0,
         durationMs: sc.durationMs
       });
     }

@@ -57,20 +57,20 @@
   - **Client Requests**: Baseline = **127 reqs** | BFF = **1 req** | GraphQL = **1 req**.
   - **Internal Service Calls**: GraphQL (N+1) = **127 calls** ➔ Sau khi dùng DataLoader = **3 calls**.
   - **Số truy vấn Database**: Giảm từ **128 queries** xuống còn **4 queries**.
-  - **Thời gian hoàn tất (Median)**:
-    - Baseline: 90 ms
-    - GraphQL (N+1): 74 ms
-    - GraphQL (DataLoader): **11 ms** (Nhanh gấp gần 7 lần)
-    - BFF: **5 ms** (Tối ưu nhất)
-  - **Dung lượng Payload cho Mobile**: Giảm từ 58.6 KB xuống **22.6 KB** (Tiết kiệm > 61% băng thông).
+  - **Thời gian nhận response (Median)**:
+    - Baseline: 260 ms
+    - GraphQL (N+1): 201 ms
+    - GraphQL (DataLoader): **23 ms**
+    - BFF: **16 ms**
+  - **Dung lượng Payload cho Mobile (BFF)**: Giảm từ 58.6 KB xuống **22.7 KB** (giảm khoảng 61%).
 
 ---
 
 ## PHẦN 5: TRADE-OFF (ĐÁNH ĐỔI & BÀI HỌC)
 - **BFF vs GraphQL**:
-  - *BFF*: Tối ưu tuyệt đối về tốc độ và bảo mật; nhưng tốn công bảo trì nhiều endpoint khi số lượng client tăng.
-  - *GraphQL*: Cực kỳ linh hoạt cho frontend, 1 endpoint cho tất cả; nhưng đòi hỏi kỹ năng xử lý DataLoader để tránh N+1 và chi phí tính toán AST trên server.
+  - *BFF*: Tối ưu response theo từng client; nhưng tốn công bảo trì nhiều endpoint khi số lượng client tăng.
+  - *GraphQL*: Linh hoạt cho frontend, 1 endpoint cho các query khác nhau; nhưng cần DataLoader để tránh N+1 và có chi phí xử lý query ở server.
 - **Client-side vs Server-side Composition**:
-  - Ghép tại server giải quyết triệt để vấn đề mạng chậm trên thiết bị di động, nhưng dồn tải CPU và bộ nhớ lên tầng gateway.
+  - Ghép tại server giảm số round-trip từ client, nhưng dồn thêm tải CPU và bộ nhớ lên tầng gateway.
 - **Giới hạn phép đo**:
-  - Do đo trên localhost, độ trễ mạng thực tế ngoài internet chưa phản ánh hết sự chênh lệch to lớn mà BFF đem lại cho người dùng cuối.
+  - Do đo trên localhost, độ trễ mạng thực tế ngoài internet chưa được phản ánh đầy đủ.

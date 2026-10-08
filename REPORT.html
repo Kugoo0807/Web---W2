@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>REPORT — API Composition</title>
+  <style>
+    body { font: 16px/1.55 system-ui, sans-serif; color: #1f2937; max-width: 900px; margin: 40px auto; padding: 0 24px; }
+    h1, h2 { color: #0f172a; } h1 { border-bottom: 2px solid #0f766e; padding-bottom: 10px; }
+    code { background: #f1f5f9; padding: 2px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>REPORT — API Composition</h1>
+
+  <h2>1. Lựa chọn kỹ thuật</h2>
+  <p>Nhóm dùng <strong>Node.js 22 + Express</strong> để các REST service, BFF và client cùng dùng JavaScript; khởi động nhanh, phù hợp thời lượng thực hành. Spring Boot không được chọn vì cấu hình và vòng lặp build lớn hơn trong khi không phục vụ trực tiếp mục tiêu so sánh API composition.</p>
+  <p>Mỗi service sở hữu một file <strong>SQLite</strong> riêng. Cách này dễ nạp dữ liệu và chạy lại trên localhost; kết quả không đại diện cho database phân tán hoặc tải đồng thời cao.</p>
+  <p>GraphQL dùng <code>graphql</code> và <code>DataLoader</code>. Mode <code>n1</code> gọi Product Service theo từng item; mode <code>dataloader</code> gom ID, khử trùng lặp và gọi batch một lần. Apollo Server không cần thiết cho schema/resolver nhỏ của bài.</p>
+
+  <h2>2. Documentation và logging</h2>
+  <p>Nhóm không thêm Swagger/OpenAPI vì contract API nhỏ đã có trong README và PLAN. Nếu mở rộng hệ thống, REST API nên có OpenAPI. Nhóm cũng không dựng ELK do đây là demo localhost; telemetry service call, DB query và duration được trả về để benchmark. Production nên dùng structured logging và hệ thống quan sát tập trung.</p>
+
+  <h2>3. Policy lỗi</h2>
+  <p>BFF và GraphQL cùng dùng <strong>partial failure</strong>: khi Product Service lỗi hoặc timeout 1500 ms, User/Order vẫn trả về, product là <code>null</code>, response có <code>errors</code>, và không thay thế bằng dữ liệu giả.</p>
+
+  <h2>4. Đo lường và giới hạn</h2>
+  <ul>
+    <li>Payload là số byte UTF-8 của JSON response body, không gồm HTTP header/request body.</li>
+    <li>Cold run là lần đầu sau khi restart các service cho biến thể đó; bốn lần kế là warm run.</li>
+    <li>Kết quả localhost dao động theo máy và tiến trình nền; chỉ so sánh cùng dữ liệu, query fields và môi trường.</li>
+  </ul>
+  <p>Xem số đo raw trong <code>BENCHMARK_REPORT.md</code> và trace/lỗi trong <code>EVIDENCE.md</code>.</p>
+
+  <h2>5. Trade-off</h2>
+  <p>Baseline đơn giản ở server nhưng khiến client chatty. BFF trả response phù hợp từng client nhưng tăng endpoint cần duy trì. GraphQL linh hoạt về field, đổi lại phải batch/dedup để tránh N+1 và cần kiểm soát query khi mở rộng.</p>
+</body>
+</html>

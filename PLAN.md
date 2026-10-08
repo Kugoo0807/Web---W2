@@ -61,7 +61,7 @@ Hệ thống kiểm nghiệm qua 3 mô hình lấy dữ liệu:
    - Bắt đầu: Ngay khi kích hoạt hành động tải (`t0 = performance.now()`).
    - Kết thúc: Ngay khi toàn bộ dữ liệu cần thiết được tải về và render hoàn tất trên DOM (`t_finish = performance.now()`).
    - Thời gian hoàn tất = `t_finish - t0` (ms).
-5. **Payload Size**: Dung lượng JSON response tính bằng Bytes (Header + Body).
+5. **Payload Size**: Dung lượng UTF-8 của JSON response body, không gồm HTTP header hoặc request body.
 
 ---
 

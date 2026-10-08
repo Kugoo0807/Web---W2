@@ -13,22 +13,20 @@
 - **Log hệ thống**:
 ```text
 [GraphQL Execution Mode: n1]
-├── Call 1: GET http://localhost:4002/orders?userId=u2 (Order Service -> 50 orders)
-├── Call 2: GET http://localhost:4003/products/p4
-├── Call 3: GET http://localhost:4003/products/p7
-├── Call 4: GET http://localhost:4003/products/p4  <-- Trùng lặp sản phẩm p4!
-├── Call 5: GET http://localhost:4003/products/p10
-├── Call 6: GET http://localhost:4003/products/p7  <-- Trùng lặp sản phẩm p7!
+├── Call 1: GET http://localhost:4001/users/u2
+├── Call 2: GET http://localhost:4002/orders?userId=u2 (Order Service -> 50 orders)
+├── Call 3: GET http://localhost:4003/products/p4
+├── Call 4: GET http://localhost:4003/products/p7
+├── Call 5: GET http://localhost:4003/products/p4  <-- Trùng lặp sản phẩm p4!
+├── Call 6: GET http://localhost:4003/products/p10
 ...
-├── Call 125: GET http://localhost:4003/products/p2
-├── Call 126: GET http://localhost:4003/products/p8
 └── Call 127: GET http://localhost:4003/products/p5
 
 Tổng kết Trace N+1:
 - Client Requests: 1
 - Internal Calls: 127 calls
 - Product Service DB Queries: 125 queries riêng lẻ (SELECT * FROM products WHERE id = 'p...')
-- Thời gian xử lý: 74 ms (Cold run: 111 ms)
+- Median thời gian hoàn tất response: 201 ms (Cold run: 300 ms)
 ```
 
 ### 1.2 Trace SAU khi sửa (GraphQL với DataLoader - Batching & Deduplication)
@@ -36,15 +34,16 @@ Tổng kết Trace N+1:
 - **Log hệ thống**:
 ```text
 [GraphQL Execution Mode: dataloader]
-├── Call 1: GET http://localhost:4002/orders?userId=u2 (Order Service -> 50 orders)
-└── Call 2: GET http://localhost:4003/products/batch?ids=p1,p2,p3,p4,p5,p6,p7,p8,p9,p10
+├── Call 1: GET http://localhost:4001/users/u2
+├── Call 2: GET http://localhost:4002/orders?userId=u2 (Order Service -> 50 orders)
+└── Call 3: GET http://localhost:4003/products/batch?ids=p1,p2,p3,p4,p5,p6,p7,p8,p9,p10
     └── Product Service SQL: SELECT * FROM products WHERE id IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 Tổng kết Trace DataLoader:
 - Client Requests: 1
 - Internal Calls: 2 calls (nếu chỉ query orders) hoặc 3 calls (nếu kèm user)
 - Product Service DB Queries: 1 query duy nhất!
-- Thời gian xử lý: 11 ms (Giảm gần 7 lần so với chế độ N+1)
+- Median thời gian hoàn tất response: 23 ms (giảm so với chế độ N+1)
 ```
 
 ---
@@ -136,8 +135,9 @@ Chính sách đã chốt trong `PLAN.md`: **Partial Failure (Trả dữ liệu m
 ### 4.2 Thử nghiệm 2: Product Service bị chậm 2000ms (Vượt quá Timeout 1500ms)
 - **Thao tác**: Gọi BFF và GraphQL kèm cờ `delay=2000`.
 - **Kết quả ghi nhận**:
-  - BFF ngắt kết nối sau **1522 ms** nhờ `AbortController(1500ms)`.
-  - Không gây treo hệ thống hay nghẽn tài nguyên vô hạn.
+- BFF ngắt Product Service sau **1540 ms** nhờ `AbortController(1500ms)`.
+- GraphQL hoàn tất sau **1528 ms**, trả `product: null` kèm `errors`.
+- Không gây treo hệ thống hay nghẽn tài nguyên vô hạn.
   - Trả về dữ liệu một phần (Partial data) với thông báo:
     `{ "service": "product-service", "status": 408, "message": "Timeout" }`.
 
@@ -150,7 +150,7 @@ Chính sách đã chốt trong `PLAN.md`: **Partial Failure (Trả dữ liệu m
    - *Ưu điểm*: Backend cực kỳ đơn giản, không cần dựng thêm tầng ghép nối.
    - *Nhược điểm*: Client quá "nhiều chuyện" (Chatty), phụ thuộc băng thông client, rò rỉ cấu trúc microservice nội bộ ra ngoài internet, hiệu năng tệ khi dữ liệu lớn.
 2. **BFF (Backend For Frontend)**:
-   - *Ưu điểm*: Tối ưu tuyệt đối cho từng client, logic ghép tập trung, bảo mật cao, hỗ trợ tốt caching và cắt tỉa payload tối đa.
+   - *Ưu điểm*: Tối ưu response theo từng client, logic ghép tập trung, hỗ trợ cắt tỉa payload.
    - *Nhược điểm*: Khi có nhiều loại client mới (IoT, Tablet, Smart TV), đội backend phải viết và bảo trì thêm nhiều endpoint riêng.
 3. **GraphQL**:
    - *Ưu điểm*: Rất linh hoạt, client tự khai báo đúng trường mình cần mà không cần backend sửa code; schema được định kiểu mạnh (Strict Typing).

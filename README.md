@@ -9,6 +9,8 @@ Dự án triển khai bài tập thực hành môn **Web nâng cao (Tuần 2, Bl
 ```text
 Week2/
 ├── PLAN.md                    # Bản kế hoạch kiến trúc & các quyết định đã chốt với agent
+├── REPORT.md                  # Giải thích các lựa chọn kỹ thuật và giới hạn
+├── REPORT.html                # Bản HTML của REPORT.md để trình bày/nộp
 ├── BENCHMARK_REPORT.md        # Báo cáo đo thô chi tiết 5 lần chạy (Median, Min, Max, Payload)
 ├── EVIDENCE.md                # Bằng chứng N+1 trace, call graph BFF, đối chiếu Web/Mobile & Chaos test
 ├── SLIDES_OUTLINE.md          # Dàn ý bài thuyết trình 5 phần (Problem, Solution, Demo, Evidence, Trade-off)
@@ -83,15 +85,8 @@ npm run test-chaos
 
 ---
 
-## 5. Tóm tắt Kết quả Đo đạc (Large Dataset - 50 đơn hàng)
+## 5. Kết quả và evidence
 
-| Tiêu chí | Baseline | BFF | GraphQL (N+1) | GraphQL (DataLoader) |
-| :--- | :---: | :---: | :---: | :---: |
-| **Số request từ Client** | **127** | **1** | **1** | **1** |
-| **Số service call nội bộ** | 0 | 3 | **127** | **3** |
-| **Số truy vấn Database** | 128 | 4 | **128** | **4** |
-| **Thời gian hoàn tất (Median)**| 90 ms | **5 ms** | 74 ms | **11 ms** |
-| **Payload Web Client** | 54.1 KB | 58.6 KB | 67.5 KB | 53.6 KB |
-| **Payload Mobile Client** | 53.8 KB | **22.6 KB** | 34.8 KB | **20.9 KB** |
+Kết quả đo thô 5 lần (cold/warm, median và range) được ghi trong `BENCHMARK_REPORT.md`. Trace N+1, call graph BFF, đối chiếu Web/Mobile và chaos test nằm trong `EVIDENCE.md`.
 
-> Chi tiết phân tích xem tại các file: [PLAN.md](file:///e:/Nam4/Web/Week2/PLAN.md), [BENCHMARK_REPORT.md](file:///e:/Nam4/Web/Week2/BENCHMARK_REPORT.md), [EVIDENCE.md](file:///e:/Nam4/Web/Week2/EVIDENCE.md), và [SLIDES_OUTLINE.md](file:///e:/Nam4/Web/Week2/SLIDES_OUTLINE.md).
+> Xem [PLAN.md](PLAN.md), [REPORT.md](REPORT.md), [BENCHMARK_REPORT.md](BENCHMARK_REPORT.md), [EVIDENCE.md](EVIDENCE.md), và [SLIDES_OUTLINE.md](SLIDES_OUTLINE.md).

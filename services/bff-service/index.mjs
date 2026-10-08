@@ -74,13 +74,14 @@ export function createBffServiceApp() {
     const errors = [];
 
     // Gọi song song User Service và Order Service
-    const [userRes, orderRes] = await Promise.all([
-      fetchWithTelemetry(`${USER_SERVICE_URL}/users/${encodeURIComponent(userId)}`),
-      fetchWithTelemetry(`${ORDER_SERVICE_URL}/orders?userId=${encodeURIComponent(userId)}`)
-    ]);
+    const userStartMs = Math.round(performance.now() - t0);
+    const userRequest = fetchWithTelemetry(`${USER_SERVICE_URL}/users/${encodeURIComponent(userId)}`);
+    const orderStartMs = Math.round(performance.now() - t0);
+    const orderRequest = fetchWithTelemetry(`${ORDER_SERVICE_URL}/orders?userId=${encodeURIComponent(userId)}`);
+    const [userRes, orderRes] = await Promise.all([userRequest, orderRequest]);
 
-    serviceCallBreakdown.push(userRes.metrics);
-    serviceCallBreakdown.push(orderRes.metrics);
+    serviceCallBreakdown.push({ ...userRes.metrics, startMs: userStartMs });
+    serviceCallBreakdown.push({ ...orderRes.metrics, startMs: orderStartMs });
     totalDbQueries += userRes.metrics.dbQueries + orderRes.metrics.dbQueries;
 
     if (!userRes.ok) {
@@ -113,11 +114,12 @@ export function createBffServiceApp() {
     // Gọi Product Service theo batch (chỉ 1 service call dù có bao nhiêu đơn)
     let productMap = new Map();
     if (uniqueProductIds.length > 0) {
+      const productStartMs = Math.round(performance.now() - t0);
       const prodRes = await fetchWithTelemetry(
         `${PRODUCT_SERVICE_URL}/products/batch?ids=${uniqueProductIds.join(',')}${chaosQuery}`,
         { headers: chaosHeaders, timeout: PRODUCT_TIMEOUT_MS }
       );
-      serviceCallBreakdown.push(prodRes.metrics);
+      serviceCallBreakdown.push({ ...prodRes.metrics, startMs: productStartMs });
       totalDbQueries += prodRes.metrics.dbQueries;
 
       if (prodRes.ok && Array.isArray(prodRes.data)) {
@@ -177,8 +179,9 @@ export function createBffServiceApp() {
     const errors = [];
 
     // Mobile chỉ cần Order Service và Product Service, không cần gọi User Service!
+    const orderStartMs = Math.round(performance.now() - t0);
     const orderRes = await fetchWithTelemetry(`${ORDER_SERVICE_URL}/orders?userId=${encodeURIComponent(userId)}`);
-    serviceCallBreakdown.push(orderRes.metrics);
+    serviceCallBreakdown.push({ ...orderRes.metrics, startMs: orderStartMs });
     totalDbQueries += orderRes.metrics.dbQueries;
 
     if (!orderRes.ok) {
@@ -205,11 +208,12 @@ export function createBffServiceApp() {
 
     let productMap = new Map();
     if (uniqueProductIds.length > 0) {
+      const productStartMs = Math.round(performance.now() - t0);
       const prodRes = await fetchWithTelemetry(
         `${PRODUCT_SERVICE_URL}/products/batch?ids=${uniqueProductIds.join(',')}${chaosQuery}`,
         { headers: chaosHeaders, timeout: PRODUCT_TIMEOUT_MS }
       );
-      serviceCallBreakdown.push(prodRes.metrics);
+      serviceCallBreakdown.push({ ...prodRes.metrics, startMs: productStartMs });
       totalDbQueries += prodRes.metrics.dbQueries;
 
       if (prodRes.ok && Array.isArray(prodRes.data)) {
